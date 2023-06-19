@@ -771,16 +771,21 @@ func TestRoleAssignmentWALRollback(t *testing.T) {
 		raIDs := credsResp.Secret.InternalData["role_assignment_ids"].([]string)
 		equal(t, 2, len(raIDs))
 
-		ra, err := provider.raClient.GetByID(context.Background(), raIDs[0])
+		ra, err := provider.raClient.GetByID(context.Background(), raIDs[0], nil)
 		assertErrorIsNil(t, err)
 
 		roleDefs, err := provider.ListRoleDefinitions(context.Background(), fmt.Sprintf("subscriptions/%s", subscriptionID), "")
 		assertErrorIsNil(t, err)
 
-		defID := *ra.RoleAssignmentPropertiesWithScope.RoleDefinitionID
+		assertNotNil(t, ra.RoleAssignment.Properties)
+		var defID string
+		if ra.RoleAssignment.Properties.RoleDefinitionID != nil {
+			defID = *ra.RoleAssignment.Properties.RoleDefinitionID
+		}
+
 		found := false
 		for _, def := range roleDefs {
-			if *def.ID == defID && *def.RoleName == "Storage Blob Data Owner" {
+			if *def.ID == defID && *def.Name == "Storage Blob Data Owner" {
 				found = true
 				break
 			}
@@ -978,16 +983,20 @@ func TestCredentialInteg_msgraph(t *testing.T) {
 		raIDs := credsResp.Secret.InternalData["role_assignment_ids"].([]string)
 		equal(t, 2, len(raIDs))
 
-		ra, err := provider.raClient.GetByID(context.Background(), raIDs[0])
+		ra, err := provider.raClient.GetByID(context.Background(), raIDs[0], nil)
 		assertErrorIsNil(t, err)
 
 		roleDefs, err := provider.ListRoleDefinitions(context.Background(), fmt.Sprintf("subscriptions/%s", subscriptionID), "")
 		assertErrorIsNil(t, err)
 
-		defID := *ra.RoleAssignmentPropertiesWithScope.RoleDefinitionID
+		assertNotNil(t, ra.RoleAssignment.Properties)
+		var defID string
+		if ra.RoleAssignment.Properties.RoleDefinitionID != nil {
+			defID = *ra.RoleAssignment.Properties.RoleDefinitionID
+		}
 		found := false
 		for _, def := range roleDefs {
-			if *def.ID == defID && *def.RoleName == "Storage Blob Data Owner" {
+			if *def.ID == defID && *def.Name == "Storage Blob Data Owner" {
 				found = true
 				break
 			}

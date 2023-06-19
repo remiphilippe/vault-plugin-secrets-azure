@@ -7,7 +7,11 @@ import (
 	"context"
 	"time"
 
-	"github.com/Azure/azure-sdk-for-go/services/preview/authorization/mgmt/2018-01-01-preview/authorization"
+	"github.com/Azure/azure-sdk-for-go/sdk/azcore"
+	"github.com/Azure/azure-sdk-for-go/sdk/azcore/arm"
+	"github.com/Azure/azure-sdk-for-go/sdk/azcore/policy"
+	"github.com/Azure/azure-sdk-for-go/sdk/azidentity"
+	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/authorization/armauthorization"
 	"github.com/Azure/go-autorest/autorest"
 	"github.com/Azure/go-autorest/autorest/azure/auth"
 	"github.com/hashicorp/vault-plugin-secrets-azure/api"
@@ -25,8 +29,8 @@ type provider struct {
 	appClient    api.ApplicationsClient
 	spClient     api.ServicePrincipalClient
 	groupsClient api.GroupsClient
-	raClient     *authorization.RoleAssignmentsClient
-	rdClient     *authorization.RoleDefinitionsClient
+	raClient     *armauthorization.RoleAssignmentsClient
+	rdClient     *armauthorization.RoleDefinitionsClient
 }
 
 // newAzureProvider creates an azureProvider, backed by Azure client objects for underlying services.
@@ -39,6 +43,15 @@ func newAzureProvider(settings *clientSettings, passwords api.Passwords) (api.Az
 	var spClient api.ServicePrincipalClient
 
 	graphURI, err := api.GetGraphURI(settings.Environment.Name)
+	if err != nil {
+		return nil, err
+	}
+	graphCloud, err := api.GetGraphCloudConfig(settings.Environment.Name)
+	if err != nil {
+		return nil, err
+	}
+
+	creds, err := getCreds(settings)
 	if err != nil {
 		return nil, err
 	}
@@ -57,19 +70,21 @@ func newAzureProvider(settings *clientSettings, passwords api.Passwords) (api.Az
 	groupsClient = msGraphAppClient
 	spClient = msGraphAppClient
 
-	// build clients that use the Resource Manager endpoint
-	resourceManagerAuthorizer, err := getAuthorizer(settings, settings.Environment.ResourceManagerEndpoint)
+	options := arm.ClientOptions{
+		ClientOptions: policy.ClientOptions{
+			Cloud: graphCloud,
+		},
+	}
+	// missing user-agent config
+	raClient, err := armauthorization.NewRoleAssignmentsClient(settings.SubscriptionID, creds, &options)
 	if err != nil {
 		return nil, err
 	}
 
-	raClient := authorization.NewRoleAssignmentsClientWithBaseURI(settings.Environment.ResourceManagerEndpoint, settings.SubscriptionID)
-	raClient.Authorizer = resourceManagerAuthorizer
-	raClient.AddToUserAgent(userAgent)
-
-	rdClient := authorization.NewRoleDefinitionsClientWithBaseURI(settings.Environment.ResourceManagerEndpoint, settings.SubscriptionID)
-	rdClient.Authorizer = resourceManagerAuthorizer
-	rdClient.AddToUserAgent(userAgent)
+	rdClient, err := armauthorization.NewRoleDefinitionsClient(creds, &options)
+	if err != nil {
+		return nil, err
+	}
 
 	p := &provider{
 		settings: settings,
@@ -77,8 +92,8 @@ func newAzureProvider(settings *clientSettings, passwords api.Passwords) (api.Az
 		appClient:    appClient,
 		spClient:     spClient,
 		groupsClient: groupsClient,
-		raClient:     &raClient,
-		rdClient:     &rdClient,
+		raClient:     raClient,
+		rdClient:     rdClient,
 	}
 
 	return p, nil
@@ -97,6 +112,24 @@ func getAuthorizer(settings *clientSettings, resource string) (autorest.Authoriz
 	config := auth.NewMSIConfig()
 	config.Resource = resource
 	return config.Authorizer()
+}
+
+func getCreds(settings *clientSettings) (azcore.TokenCredential, error) {
+	if settings.ClientID != "" && settings.ClientSecret != "" && settings.TenantID != "" {
+		creds, err := azidentity.NewClientSecretCredential(settings.TenantID, settings.ClientID, settings.ClientSecret, nil)
+		if err != nil {
+			return nil, err
+		}
+
+		return creds, nil
+	}
+	// Managed identities for Azure resources is the new name for the service formerly known as Managed Service Identity (MSI)
+	// https://learn.microsoft.com/en-us/azure/active-directory/managed-identities-azure-resources/overview
+	creds, err := azidentity.NewManagedIdentityCredential(nil)
+	if err != nil {
+		return nil, err
+	}
+	return creds, nil
 }
 
 // CreateApplication create a new Azure application object.
@@ -137,47 +170,85 @@ func (p *provider) DeleteServicePrincipal(ctx context.Context, spObjectID string
 }
 
 // ListRoles like all Azure roles with a scope (often subscription).
-func (p *provider) ListRoleDefinitions(ctx context.Context, scope string, filter string) (result []authorization.RoleDefinition, err error) {
-	page, err := p.rdClient.List(ctx, scope, filter)
-
-	if err != nil {
-		return nil, err
+func (p *provider) ListRoleDefinitions(ctx context.Context, scope string, filter string) (result []armauthorization.RoleDefinition, err error) {
+	options := armauthorization.RoleDefinitionsClientListOptions{
+		Filter: &filter,
+	}
+	page := p.rdClient.NewListPager(scope, &options)
+	allValues := make([]armauthorization.RoleDefinition, 0)
+	for page.More() {
+		resp, err := page.NextPage(ctx)
+		if err != nil {
+			return nil, err
+		}
+		for _, v := range resp.Value {
+			if v != nil {
+				allValues = append(allValues, *v)
+			}
+		}
 	}
 
-	return page.Values(), nil
+	return allValues, nil
 }
 
 // GetRoleByID fetches the full role definition given a roleID.
-func (p *provider) GetRoleDefinitionByID(ctx context.Context, roleID string) (result authorization.RoleDefinition, err error) {
-	return p.rdClient.GetByID(ctx, roleID)
+func (p *provider) GetRoleDefinitionByID(ctx context.Context, roleID string) (result armauthorization.RoleDefinition, err error) {
+	resp, err := p.rdClient.GetByID(ctx, roleID, nil)
+	if err != nil {
+		return armauthorization.RoleDefinition{}, err
+	}
+	return resp.RoleDefinition, nil
 }
 
 // CreateRoleAssignment assigns a role to a service principal.
-func (p *provider) CreateRoleAssignment(ctx context.Context, scope string, roleAssignmentName string, parameters authorization.RoleAssignmentCreateParameters) (authorization.RoleAssignment, error) {
-	return p.raClient.Create(ctx, scope, roleAssignmentName, parameters)
+func (p *provider) CreateRoleAssignment(ctx context.Context, scope string, roleAssignmentName string, parameters armauthorization.RoleAssignmentCreateParameters) (armauthorization.RoleAssignment, error) {
+	resp, err := p.raClient.Create(ctx, scope, roleAssignmentName, parameters, nil)
+	if err != nil {
+		return armauthorization.RoleAssignment{}, err
+	}
+	return resp.RoleAssignment, nil
 }
 
 // GetRoleAssignmentByID fetches the full role assignment info given a roleAssignmentID.
-func (p *provider) GetRoleAssignmentByID(ctx context.Context, roleAssignmentID string) (result authorization.RoleAssignment, err error) {
-	return p.raClient.GetByID(ctx, roleAssignmentID)
+func (p *provider) GetRoleAssignmentByID(ctx context.Context, roleAssignmentID string) (result armauthorization.RoleAssignment, err error) {
+	resp, err := p.raClient.GetByID(ctx, roleAssignmentID, nil)
+	if err != nil {
+		return armauthorization.RoleAssignment{}, err
+	}
+	return resp.RoleAssignment, nil
 }
 
 // DeleteRoleAssignmentByID deletes a role assignment.
-func (p *provider) DeleteRoleAssignmentByID(ctx context.Context, roleAssignmentID string) (result authorization.RoleAssignment, err error) {
-	return p.raClient.DeleteByID(ctx, roleAssignmentID)
+func (p *provider) DeleteRoleAssignmentByID(ctx context.Context, roleAssignmentID string) (result armauthorization.RoleAssignment, err error) {
+	resp, err := p.raClient.DeleteByID(ctx, roleAssignmentID, nil)
+	if err != nil {
+		return armauthorization.RoleAssignment{}, err
+	}
+	return resp.RoleAssignment, nil
 }
 
 // ListRoleAssignments lists all role assignments.
 // There is no need for paging; the caller only cares about the first match and whether
 // there are 0, 1 or >1 items. Unpacking here is a simpler interface.
-func (p *provider) ListRoleAssignments(ctx context.Context, filter string) ([]authorization.RoleAssignment, error) {
-	page, err := p.raClient.List(ctx, filter)
-
-	if err != nil {
-		return nil, err
+func (p *provider) ListRoleAssignments(ctx context.Context, filter string) ([]armauthorization.RoleAssignment, error) {
+	options := armauthorization.RoleAssignmentsClientListOptions{
+		Filter: &filter,
+	}
+	page := p.raClient.NewListPager(&options)
+	allValues := make([]armauthorization.RoleAssignment, 0)
+	for page.More() {
+		resp, err := page.NextPage(ctx)
+		if err != nil {
+			return nil, err
+		}
+		for _, v := range resp.Value {
+			if v != nil {
+				allValues = append(allValues, *v)
+			}
+		}
 	}
 
-	return page.Values(), nil
+	return allValues, nil
 }
 
 // AddGroupMember adds a member to a Group.

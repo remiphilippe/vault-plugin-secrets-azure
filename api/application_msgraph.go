@@ -10,6 +10,7 @@ import (
 	"net/url"
 	"time"
 
+	"github.com/Azure/azure-sdk-for-go/sdk/azcore/cloud"
 	"github.com/Azure/azure-sdk-for-go/services/preview/authorization/mgmt/2018-01-01-preview/authorization"
 	"github.com/Azure/go-autorest/autorest"
 	"github.com/Azure/go-autorest/autorest/azure"
@@ -25,6 +26,20 @@ var _ ServicePrincipalClient = (*AppClient)(nil)
 type AppClient struct {
 	client   authorization.BaseClient
 	graphURI string
+}
+
+func GetGraphCloudConfig(env string) (cloud.Configuration, error) {
+	// Germany cloud is discontinued
+	switch env {
+	case "AzurePublicCloud", "":
+		return cloud.AzurePublic, nil
+	case "AzureUSGovernmentCloud":
+		return cloud.AzureGovernment, nil
+	case "AzureChinaCloud":
+		return cloud.AzureChina, nil
+	default:
+		return cloud.AzurePublic, fmt.Errorf("environment '%s' unknown", env)
+	}
 }
 
 // Reference: https://docs.microsoft.com/en-us/graph/deployments#microsoft-graph-and-graph-explorer-service-root-endpoints

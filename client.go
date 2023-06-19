@@ -13,7 +13,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/Azure/azure-sdk-for-go/services/preview/authorization/mgmt/2018-01-01-preview/authorization"
+	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/authorization/armauthorization"
 	"github.com/Azure/go-autorest/autorest"
 	"github.com/Azure/go-autorest/autorest/azure"
 	"github.com/Azure/go-autorest/autorest/to"
@@ -175,8 +175,8 @@ func (c *client) assignRoles(ctx context.Context, spID string, roles []*AzureRol
 				return nil, true, fmt.Errorf("assignmentID at index %d was empty", i)
 			}
 			ra, err := c.provider.CreateRoleAssignment(ctx, role.Scope, assignmentIDs[i],
-				authorization.RoleAssignmentCreateParameters{
-					RoleAssignmentProperties: &authorization.RoleAssignmentProperties{
+				armauthorization.RoleAssignmentCreateParameters{
+					Properties: &armauthorization.RoleAssignmentProperties{
 						RoleDefinitionID: &role.RoleID,
 						PrincipalID:      &spID,
 					},
@@ -277,7 +277,7 @@ func groupObjectIDs(groups []*AzureGroup) []string {
 }
 
 // search for roles by name
-func (c *client) findRoles(ctx context.Context, roleName string) ([]authorization.RoleDefinition, error) {
+func (c *client) findRoles(ctx context.Context, roleName string) ([]armauthorization.RoleDefinition, error) {
 	return c.provider.ListRoleDefinitions(ctx, fmt.Sprintf("subscriptions/%s", c.settings.SubscriptionID), fmt.Sprintf("roleName eq '%s'", roleName))
 }
 

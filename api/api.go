@@ -7,7 +7,7 @@ import (
 	"context"
 	"time"
 
-	"github.com/Azure/azure-sdk-for-go/services/preview/authorization/mgmt/2018-01-01-preview/authorization"
+	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/authorization/armauthorization"
 	"github.com/Azure/go-autorest/autorest"
 	"github.com/Azure/go-autorest/autorest/date"
 )
@@ -24,11 +24,11 @@ type AzureProvider interface {
 		ctx context.Context,
 		scope string,
 		roleAssignmentName string,
-		parameters authorization.RoleAssignmentCreateParameters) (authorization.RoleAssignment, error)
-	DeleteRoleAssignmentByID(ctx context.Context, roleID string) (authorization.RoleAssignment, error)
+		parameters armauthorization.RoleAssignmentCreateParameters) (armauthorization.RoleAssignment, error)
+	DeleteRoleAssignmentByID(ctx context.Context, roleID string) (armauthorization.RoleAssignment, error)
 
-	ListRoleDefinitions(ctx context.Context, scope string, filter string) ([]authorization.RoleDefinition, error)
-	GetRoleDefinitionByID(ctx context.Context, roleID string) (authorization.RoleDefinition, error)
+	ListRoleDefinitions(ctx context.Context, scope string, filter string) ([]armauthorization.RoleDefinition, error)
+	GetRoleDefinitionByID(ctx context.Context, roleID string) (armauthorization.RoleDefinition, error)
 }
 
 type ApplicationsClient interface {

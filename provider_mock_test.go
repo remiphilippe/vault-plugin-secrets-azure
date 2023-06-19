@@ -12,7 +12,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/Azure/azure-sdk-for-go/services/preview/authorization/mgmt/2018-01-01-preview/authorization"
+	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/authorization/armauthorization"
 	"github.com/Azure/go-autorest/autorest/date"
 	"github.com/Azure/go-autorest/autorest/to"
 	"github.com/hashicorp/vault-plugin-secrets-azure/api"
@@ -40,49 +40,49 @@ func newMockProvider() api.AzureProvider {
 }
 
 // ListRoles returns a single fake role based on the inbound filter
-func (m *mockProvider) ListRoleDefinitions(_ context.Context, _ string, filter string) ([]authorization.RoleDefinition, error) {
+func (m *mockProvider) ListRoleDefinitions(_ context.Context, _ string, filter string) ([]armauthorization.RoleDefinition, error) {
 	reRoleName := regexp.MustCompile("roleName eq '(.*)'")
 
 	match := reRoleName.FindAllStringSubmatch(filter, -1)
 	if len(match) > 0 {
 		name := match[0][1]
 		if name == "multiple" {
-			return []authorization.RoleDefinition{
+			return []armauthorization.RoleDefinition{
 				{
 					ID: to.StringPtr(fmt.Sprintf("/subscriptions/FAKE_SUB_ID/providers/Microsoft.Authorization/roleDefinitions/FAKE_ROLE-%s-1", name)),
-					RoleDefinitionProperties: &authorization.RoleDefinitionProperties{
+					Properties: &armauthorization.RoleDefinitionProperties{
 						RoleName: to.StringPtr(name),
 					},
 				},
 				{
 					ID: to.StringPtr(fmt.Sprintf("/subscriptions/FAKE_SUB_ID/providers/Microsoft.Authorization/roleDefinitions/FAKE_ROLE-%s-2", name)),
-					RoleDefinitionProperties: &authorization.RoleDefinitionProperties{
+					Properties: &armauthorization.RoleDefinitionProperties{
 						RoleName: to.StringPtr(name),
 					},
 				},
 			}, nil
 		}
-		return []authorization.RoleDefinition{
+		return []armauthorization.RoleDefinition{
 			{
 				ID: to.StringPtr(fmt.Sprintf("/subscriptions/FAKE_SUB_ID/providers/Microsoft.Authorization/roleDefinitions/FAKE_ROLE-%s", name)),
-				RoleDefinitionProperties: &authorization.RoleDefinitionProperties{
+				Properties: &armauthorization.RoleDefinitionProperties{
 					RoleName: to.StringPtr(name),
 				},
 			},
 		}, nil
 	}
 
-	return []authorization.RoleDefinition{}, nil
+	return []armauthorization.RoleDefinition{}, nil
 }
 
 // GetRoleByID will returns a fake role definition from the povided ID
 // Assumes an ID format of: .*FAKE_ROLE-{rolename}
-func (m *mockProvider) GetRoleDefinitionByID(_ context.Context, roleID string) (authorization.RoleDefinition, error) {
-	d := authorization.RoleDefinition{}
+func (m *mockProvider) GetRoleDefinitionByID(_ context.Context, roleID string) (armauthorization.RoleDefinition, error) {
+	d := armauthorization.RoleDefinition{}
 	s := strings.Split(roleID, "FAKE_ROLE-")
 	if len(s) > 1 {
 		d.ID = to.StringPtr(roleID)
-		d.RoleDefinitionProperties = &authorization.RoleDefinitionProperties{
+		d.Properties = &armauthorization.RoleDefinitionProperties{
 			RoleName: to.StringPtr(s[1]),
 		}
 	}
@@ -199,14 +199,14 @@ func (m *mockProvider) passwordExists(s string) bool {
 	return ok
 }
 
-func (m *mockProvider) CreateRoleAssignment(_ context.Context, _ string, _ string, _ authorization.RoleAssignmentCreateParameters) (authorization.RoleAssignment, error) {
-	return authorization.RoleAssignment{
+func (m *mockProvider) CreateRoleAssignment(_ context.Context, _ string, _ string, _ armauthorization.RoleAssignmentCreateParameters) (armauthorization.RoleAssignment, error) {
+	return armauthorization.RoleAssignment{
 		ID: to.StringPtr(generateUUID()),
 	}, nil
 }
 
-func (m *mockProvider) DeleteRoleAssignmentByID(_ context.Context, _ string) (authorization.RoleAssignment, error) {
-	return authorization.RoleAssignment{}, nil
+func (m *mockProvider) DeleteRoleAssignmentByID(_ context.Context, _ string) (armauthorization.RoleAssignment, error) {
+	return armauthorization.RoleAssignment{}, nil
 }
 
 // AddGroupMember adds a member to a Group.
@@ -282,8 +282,8 @@ func newErrMockProvider() api.AzureProvider {
 }
 
 // CreateRoleAssignment for the errMockProvider intentionally fails
-func (e *errMockProvider) CreateRoleAssignment(_ context.Context, _ string, _ string, _ authorization.RoleAssignmentCreateParameters) (authorization.RoleAssignment, error) {
-	return authorization.RoleAssignment{}, errors.New("PrincipalNotFound")
+func (e *errMockProvider) CreateRoleAssignment(_ context.Context, _ string, _ string, _ armauthorization.RoleAssignmentCreateParameters) (armauthorization.RoleAssignment, error) {
+	return armauthorization.RoleAssignment{}, errors.New("PrincipalNotFound")
 }
 
 // GetApplication for the errMockProvider only returns an application if that

@@ -10,7 +10,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/Azure/azure-sdk-for-go/services/preview/authorization/mgmt/2018-01-01-preview/authorization"
+	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/authorization/armauthorization"
 	"github.com/Azure/go-autorest/autorest/to"
 	"github.com/hashicorp/vault-plugin-secrets-azure/api"
 	"github.com/hashicorp/vault/sdk/framework"
@@ -259,7 +259,7 @@ func (b *azureSecretBackend) pathRoleUpdate(ctx context.Context, req *logical.Re
 	// update and verify Azure roles, including looking up each role by ID or name.
 	roleSet := make(map[string]bool)
 	for _, r := range role.AzureRoles {
-		var roleDef authorization.RoleDefinition
+		var roleDef armauthorization.RoleDefinition
 		if r.RoleID != "" {
 			roleDef, err = client.provider.GetRoleDefinitionByID(ctx, r.RoleID)
 			if err != nil {
@@ -282,7 +282,7 @@ func (b *azureSecretBackend) pathRoleUpdate(ctx context.Context, req *logical.Re
 		}
 
 		roleDefID := to.String(roleDef.ID)
-		roleDefName := to.String(roleDef.RoleName)
+		roleDefName := to.String(roleDef.Name)
 
 		r.RoleName, r.RoleID = roleDefName, roleDefID
 
