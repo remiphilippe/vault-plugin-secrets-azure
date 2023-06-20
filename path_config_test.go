@@ -8,6 +8,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/Azure/azure-sdk-for-go/sdk/azcore/cloud"
 	"github.com/hashicorp/vault-plugin-secrets-azure/api"
 	"github.com/hashicorp/vault/sdk/logical"
 )
@@ -106,14 +107,13 @@ func TestConfigEnvironmentClouds(t *testing.T) {
 
 	tests := []struct {
 		env      string
-		url      string
+		cfg      cloud.Configuration
 		expError bool
 	}{
-		{"AZURECHINACLOUD", "https://microsoftgraph.chinacloudapi.cn", false},
-		{"AZUREPUBLICCLOUD", "https://graph.microsoft.com", false},
-		{"AZUREUSGOVERNMENTCLOUD", "https://graph.microsoft.us", false},
-		{"AZUREGERMANCLOUD", "https://graph.microsoft.de", false},
-		{"invalidEnv", "", true},
+		{"AZURECHINACLOUD", cloud.AzureChina, false},
+		{"AZUREPUBLICCLOUD", cloud.AzurePublic, false},
+		{"AZUREUSGOVERNMENTCLOUD", cloud.AzureGovernment, false},
+		{"invalidEnv", cloud.AzurePublic, true},
 	}
 
 	for _, test := range tests {
@@ -146,13 +146,13 @@ func TestConfigEnvironmentClouds(t *testing.T) {
 				t.Fatal(err)
 			}
 
-			url, err := api.GetGraphURI(clientSettings.Environment.Name)
+			cfg, err := api.GetGraphCloudConfig(clientSettings.Environment.Name)
 			if err != nil {
 				t.Fatal(err)
 			}
 
-			if url != test.url {
-				t.Fatalf("expected url %s, got %s", test.url, url)
+			if cfg.ActiveDirectoryAuthorityHost != test.cfg.ActiveDirectoryAuthorityHost {
+				t.Fatalf("expected cfg %s, got %s", test.cfg, cfg)
 			}
 		}
 	}

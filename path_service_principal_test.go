@@ -6,14 +6,11 @@ package azuresecrets
 import (
 	"context"
 	"fmt"
-	"net/http"
-	"net/url"
 	"os"
 	"strings"
 	"testing"
 	"time"
 
-	"github.com/Azure/go-autorest/autorest"
 	log "github.com/hashicorp/go-hclog"
 	"github.com/hashicorp/go-uuid"
 	"github.com/hashicorp/vault-plugin-secrets-azure/api"
@@ -1054,35 +1051,11 @@ func findServicePrincipalID(t *testing.T, client api.ServicePrincipalClient, app
 
 	switch spClient := client.(type) {
 	case *api.AppClient:
-		pathVals := &url.Values{}
-		pathVals.Set("$filter", fmt.Sprintf("appId eq '%s'", appID))
-
-		prep := spClient.GetPreparer(
-			autorest.AsGet(),
-			autorest.WithPath(fmt.Sprintf("/v1.0/servicePrincipals?%s", pathVals.Encode())),
-		)
-
-		type listSPsResponse struct {
-			ServicePrincipals []servicePrincipalResp `json:"value"`
-		}
-
-		respBody := listSPsResponse{}
-
-		err := spClient.SendRequest(context.Background(), prep,
-			autorest.WithErrorUnlessStatusCode(http.StatusOK),
-			autorest.ByUnmarshallingJSON(&respBody),
-		)
+		spId, err := spClient.GetServicePrincipalByAppId(context.Background(), appID)
+		assertNotEmptyString(t, spId)
 		assertErrorIsNil(t, err)
 
-		if len(respBody.ServicePrincipals) == 0 {
-			t.Fatalf("Failed to find service principals from application ID")
-		}
-
-		for _, sp := range respBody.ServicePrincipals {
-			if sp.AppID == appID {
-				return sp.ID
-			}
-		}
+		return spId
 	default:
 		t.Fatalf("Unrecognized service principal client type: %T", spClient)
 	}
@@ -1096,24 +1069,9 @@ func assertServicePrincipalExists(t *testing.T, client api.ServicePrincipalClien
 
 	switch spClient := client.(type) {
 	case *api.AppClient:
-		pathParams := map[string]interface{}{
-			"id": spID,
-		}
-
-		prep := spClient.GetPreparer(
-			autorest.AsGet(),
-			autorest.WithPathParameters("/v1.0/servicePrincipals/{id}", pathParams),
-		)
-
-		respBody := servicePrincipalResp{}
-
-		err := spClient.SendRequest(context.Background(), prep,
-			autorest.WithErrorUnlessStatusCode(http.StatusOK),
-			autorest.ByUnmarshallingJSON(&respBody),
-		)
+		sp, err := spClient.GetServicePrincipal(context.Background(), spID)
 		assertErrorIsNil(t, err)
-
-		if respBody.ID == "" {
+		if sp == nil {
 			t.Fatalf("Failed to find service principal")
 		}
 	default:
@@ -1126,24 +1084,9 @@ func assertServicePrincipalDoesNotExist(t *testing.T, client api.ServicePrincipa
 
 	switch spClient := client.(type) {
 	case *api.AppClient:
-		pathParams := map[string]interface{}{
-			"id": spID,
-		}
-
-		prep := spClient.GetPreparer(
-			autorest.AsGet(),
-			autorest.WithPathParameters("/v1.0/servicePrincipals/{id}", pathParams),
-		)
-
-		respBody := servicePrincipalResp{}
-
-		err := spClient.SendRequest(context.Background(), prep,
-			autorest.WithErrorUnlessStatusCode(http.StatusNotFound),
-			autorest.ByUnmarshallingJSON(&respBody),
-		)
+		sp, err := spClient.GetServicePrincipal(context.Background(), spID)
 		assertErrorIsNil(t, err)
-
-		if respBody.ID != "" {
+		if sp != nil {
 			t.Fatalf("Found service principal when it shouldn't exist")
 		}
 	default:

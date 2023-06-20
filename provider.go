@@ -56,12 +56,7 @@ func newAzureProvider(settings *clientSettings, passwords api.Passwords) (api.Az
 		return nil, err
 	}
 
-	graphApiAuthorizer, err := getAuthorizer(settings, graphURI)
-	if err != nil {
-		return nil, err
-	}
-
-	msGraphAppClient, err := api.NewMSGraphApplicationClient(settings.SubscriptionID, userAgent, graphURI, graphApiAuthorizer)
+	msGraphAppClient, err := api.NewMSGraphApplicationClient(settings.SubscriptionID, userAgent, graphURI, creds)
 	if err != nil {
 		return nil, err
 	}

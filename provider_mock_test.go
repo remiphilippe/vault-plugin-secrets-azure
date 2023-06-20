@@ -13,7 +13,6 @@ import (
 	"time"
 
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/authorization/armauthorization"
-	"github.com/Azure/go-autorest/autorest/date"
 	"github.com/Azure/go-autorest/autorest/to"
 	"github.com/hashicorp/vault-plugin-secrets-azure/api"
 )
@@ -160,10 +159,11 @@ func (m *mockProvider) DeleteServicePrincipal(_ context.Context, spObjectID stri
 
 func (m *mockProvider) AddApplicationPassword(_ context.Context, _ string, displayName string, endDateTime time.Time) (result api.PasswordCredentialResult, err error) {
 	keyID := generateUUID()
+	now := time.Now()
 	cred := api.PasswordCredential{
 		DisplayName: to.StringPtr(displayName),
-		StartDate:   &date.Time{Time: time.Now()},
-		EndDate:     &date.Time{endDateTime},
+		StartDate:   &now,
+		EndDate:     &endDateTime,
 		KeyID:       to.StringPtr(keyID),
 		SecretText:  to.StringPtr(generateUUID()),
 	}

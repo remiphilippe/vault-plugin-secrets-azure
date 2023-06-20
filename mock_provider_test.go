@@ -9,7 +9,7 @@ import (
 	reflect "reflect"
 	time "time"
 
-	authorization "github.com/Azure/azure-sdk-for-go/services/preview/authorization/mgmt/2018-01-01-preview/authorization"
+	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/authorization/armauthorization"
 	gomock "github.com/golang/mock/gomock"
 	api "github.com/hashicorp/vault-plugin-secrets-azure/api"
 )
@@ -82,10 +82,10 @@ func (mr *MockAzureProviderMockRecorder) CreateApplication(arg0, arg1 interface{
 }
 
 // CreateRoleAssignment mocks base method.
-func (m *MockAzureProvider) CreateRoleAssignment(arg0 context.Context, arg1, arg2 string, arg3 authorization.RoleAssignmentCreateParameters) (authorization.RoleAssignment, error) {
+func (m *MockAzureProvider) CreateRoleAssignment(arg0 context.Context, arg1, arg2 string, arg3 armauthorization.RoleAssignmentCreateParameters) (armauthorization.RoleAssignment, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "CreateRoleAssignment", arg0, arg1, arg2, arg3)
-	ret0, _ := ret[0].(authorization.RoleAssignment)
+	ret0, _ := ret[0].(armauthorization.RoleAssignment)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -127,10 +127,10 @@ func (mr *MockAzureProviderMockRecorder) DeleteApplication(arg0, arg1 interface{
 }
 
 // DeleteRoleAssignmentByID mocks base method.
-func (m *MockAzureProvider) DeleteRoleAssignmentByID(arg0 context.Context, arg1 string) (authorization.RoleAssignment, error) {
+func (m *MockAzureProvider) DeleteRoleAssignmentByID(arg0 context.Context, arg1 string) (armauthorization.RoleAssignment, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "DeleteRoleAssignmentByID", arg0, arg1)
-	ret0, _ := ret[0].(authorization.RoleAssignment)
+	ret0, _ := ret[0].(armauthorization.RoleAssignment)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -172,10 +172,10 @@ func (mr *MockAzureProviderMockRecorder) GetGroup(arg0, arg1 interface{}) *gomoc
 }
 
 // GetRoleDefinitionByID mocks base method.
-func (m *MockAzureProvider) GetRoleDefinitionByID(arg0 context.Context, arg1 string) (authorization.RoleDefinition, error) {
+func (m *MockAzureProvider) GetRoleDefinitionByID(arg0 context.Context, arg1 string) (armauthorization.RoleDefinition, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetRoleDefinitionByID", arg0, arg1)
-	ret0, _ := ret[0].(authorization.RoleDefinition)
+	ret0, _ := ret[0].(armauthorization.RoleDefinition)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -217,10 +217,10 @@ func (mr *MockAzureProviderMockRecorder) ListGroups(arg0, arg1 interface{}) *gom
 }
 
 // ListRoleDefinitions mocks base method.
-func (m *MockAzureProvider) ListRoleDefinitions(arg0 context.Context, arg1, arg2 string) ([]authorization.RoleDefinition, error) {
+func (m *MockAzureProvider) ListRoleDefinitions(arg0 context.Context, arg1, arg2 string) ([]armauthorization.RoleDefinition, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ListRoleDefinitions", arg0, arg1, arg2)
-	ret0, _ := ret[0].([]authorization.RoleDefinition)
+	ret0, _ := ret[0].([]armauthorization.RoleDefinition)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
